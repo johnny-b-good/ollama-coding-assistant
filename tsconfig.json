@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "module": "Preserve",
+    "target": "es2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "isolatedModules": true
+  }
+}
