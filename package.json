@@ -8,13 +8,21 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/ignore-walk": "^4.0.3",
     "@types/node": "^22.15.2",
     "prettier": "^3.5.3",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "chromadb-client": "^2.3.0",
+    "crc-32": "^1.2.2",
+    "dotenv": "^16.5.0",
+    "ignore-walk": "^7.0.0",
     "ollama": "^0.5.15",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "uuid": "^11.1.0",
     "zod": "^3.24.3"
   }
 }
