@@ -5,51 +5,31 @@ import ollama from "ollama";
 import ignoreWalk from "ignore-walk";
 import { ChromaClient, type AddRecordsParams } from "chromadb-client";
 import { v4 as uuidv4 } from "uuid";
-import pino from "pino";
 import CRC32 from "crc-32";
-import "dotenv/config";
 
-const logger = pino({
-  transport: {
-    target: "pino-pretty",
-  },
-});
-
-const ENV_CHROMADB_PATH = process.env.CHROMADB_PATH ?? "";
-const ENV_CHROMADB_COLLECTION_NAME = process.env.CHROMADB_COLLECTION_NAME ?? "";
-const ENV_SOURCE_DIR_PATH = process.env.SOURCE_DIR_PATH ?? "";
+import { config, logger } from "./utils";
 
 const PROGRESS_GROUP_COUNT = 100;
-const EMBEDDINGS_MODEL = "mxbai-embed-large:latest";
-
-if (
-  !ENV_CHROMADB_PATH ||
-  !ENV_CHROMADB_COLLECTION_NAME ||
-  !ENV_SOURCE_DIR_PATH
-) {
-  logger.error("Missing env variable");
-  process.exit(1);
-}
 
 async function main() {
-  const chroma = new ChromaClient({ path: ENV_CHROMADB_PATH });
+  const chroma = new ChromaClient({ path: config.chromadbPath });
   logger.info("Connected to ChromaDB");
 
   const oldCollection = await chroma.getCollection({
-    name: ENV_CHROMADB_COLLECTION_NAME,
+    name: config.chromadbCollectionName,
   });
   if (oldCollection) {
-    await chroma.deleteCollection({ name: ENV_CHROMADB_COLLECTION_NAME });
+    await chroma.deleteCollection({ name: config.chromadbCollectionName });
     logger.info("Deleted old collection");
   }
 
   const collection = await chroma.createCollection({
-    name: ENV_CHROMADB_COLLECTION_NAME,
+    name: config.chromadbCollectionName,
   });
   logger.info("Created new collection");
 
   const allFilePaths = ignoreWalk.sync({
-    path: ENV_SOURCE_DIR_PATH,
+    path: config.sourceDirPath,
     ignoreFiles: [".gitignore"],
   });
   const jsFilePaths = allFilePaths.filter((filePath) =>
@@ -63,7 +43,7 @@ async function main() {
   let skippedFilesCount = 0;
 
   for (const filePath of jsFilePaths) {
-    const absFilePath = path.join(ENV_SOURCE_DIR_PATH, filePath);
+    const absFilePath = path.join(config.sourceDirPath, filePath);
 
     const fileContent = await fs.readFile(absFilePath, "utf-8");
 
@@ -77,7 +57,7 @@ async function main() {
     const checksum = CRC32.str(fileContent);
 
     const { embeddings } = await ollama.embed({
-      model: EMBEDDINGS_MODEL,
+      model: config.embeddingsModel,
       input: fileContent,
     });
 
@@ -108,7 +88,7 @@ async function main() {
   }
 
   logger.info(
-    `Done. Processed ${jsFilePaths.length} files, skipped ${skippedFilesCount}`,
+    `Done. Processed ${jsFilePaths.length - skippedFilesCount} files, skipped ${skippedFilesCount}`,
   );
 }
 
