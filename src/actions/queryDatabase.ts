@@ -39,27 +39,28 @@ export const queryDatabase = async () => {
 
   logger.info(
     {
-      foundFiles: realMetadatas.map((m) => m?.path),
+      foundFiles: realMetadatas.map((m) => m?.filePath),
+      foundDocuments: realDocuments,
     },
     "Found theese files",
   );
 
-  let prompt = `You've recieved this task from user: ${userQuery}. You also know contents of theese TypeScript source files:\n`;
-  for (let i = 0; i < documents[0].length; i++) {
-    const document = realDocuments[i];
-    const metadata = realMetadatas[i];
-    prompt += `Source file #${i}\nFile path: ${metadata?.path}\nSource code:\n${document}\n\n`;
-  }
+  // let prompt = `You've recieved this task from user: ${userQuery}. You also know contents of theese TypeScript source files:\n`;
+  // for (let i = 0; i < documents[0].length; i++) {
+  //   const document = realDocuments[i];
+  //   const metadata = realMetadatas[i];
+  //   prompt += `Source file #${i}\nFile path: ${metadata?.path}\nSource code:\n${document}\n\n`;
+  // }
 
-  const response = await ollama.generate({
-    model: config.mainModel,
-    prompt: prompt,
-    stream: true,
-  });
-  for await (const part of response) {
-    process.stdout.write(part.response);
-  }
-  console.log("\n");
+  // const response = await ollama.generate({
+  //   model: config.mainModel,
+  //   prompt: prompt,
+  //   stream: true,
+  // });
+  // for await (const part of response) {
+  //   process.stdout.write(part.response);
+  // }
+  // console.log("\n");
 
   logger.info("Done");
 

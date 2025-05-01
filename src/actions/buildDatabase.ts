@@ -6,10 +6,12 @@ import ignoreWalk from "ignore-walk";
 import { ChromaClient, type AddRecordsParams } from "chromadb-client";
 import { v4 as uuidv4 } from "uuid";
 import CRC32 from "crc-32";
+import ts from "typescript";
 
 import { logger, config } from "../utils";
 
 const PROGRESS_GROUP_COUNT = 100;
+const MAX_NODE_SIZE = 20; // TODO: Test larger value?
 
 export const buildDatabase = async () => {
   const chroma = new ChromaClient({ path: config.chromadbPath });
@@ -54,29 +56,68 @@ export const buildDatabase = async () => {
 
     const fileStats = await fs.stat(absFilePath);
 
-    const checksum = CRC32.str(fileContent);
+    const fileExt = path.extname(filePath);
+    const fileSize = fileStats.size;
+    const fileCreatedAt = fileStats.birthtime.toISOString();
+    const fileUpdatedAt = fileStats.mtime.toISOString();
+    const fileChecksum = CRC32.str(fileContent);
 
-    const { embeddings } = await ollama.embed({
-      model: config.embeddingsModel,
-      input: fileContent,
-    });
+    const sourceFile = ts.createSourceFile(
+      path.basename(absFilePath),
+      fileContent,
+      ts.ScriptTarget.Latest,
+      true,
+    );
 
-    const newRecord: AddRecordsParams = {
-      ids: [uuidv4()],
-      documents: [fileContent],
-      embeddings: embeddings,
-      metadatas: [
-        {
-          path: filePath,
-          size: fileStats.size,
-          createdAt: fileStats.birthtime.toISOString(),
-          updatedAt: fileStats.mtime.toISOString(),
-          crc32: checksum,
-        },
-      ],
-    };
+    const fragments: Array<{ kind: string; lines: number; content: string }> =
+      [];
 
-    await collection.add(newRecord);
+    function traverse(node: ts.Node) {
+      let nodeFullText = node.getFullText();
+      let linesNum = nodeFullText.split(/\r\n|\r|\n/).length;
+
+      // TODO: ADD OVERLAP
+      if (linesNum <= MAX_NODE_SIZE) {
+        fragments.push({
+          kind: ts.SyntaxKind[node.kind],
+          lines: linesNum,
+          content: nodeFullText,
+        });
+      } else {
+        ts.forEachChild(node, (childNode) => traverse(childNode));
+      }
+    }
+
+    traverse(sourceFile);
+
+    // TODO: Generate embeddings for all fragments at once
+    // TODO: Insert all records for fragments at once
+    for (const fragment of fragments) {
+      const { embeddings } = await ollama.embed({
+        model: config.embeddingsModel,
+        input: fragment.content,
+      });
+
+      const newRecord: AddRecordsParams = {
+        ids: [uuidv4()],
+        documents: [fileContent],
+        embeddings: embeddings,
+        metadatas: [
+          {
+            filePath,
+            fileExt,
+            fileSize,
+            fileCreatedAt,
+            fileUpdatedAt,
+            fileChecksum,
+            fragmentKind: fragment.kind,
+            fragmentLines: fragment.lines,
+          },
+        ],
+      };
+
+      await collection.add(newRecord);
+    }
 
     processedFilesCount++;
 

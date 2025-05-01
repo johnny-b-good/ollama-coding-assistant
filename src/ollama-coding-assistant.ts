@@ -1,9 +1,9 @@
-import { buildDatabase, queryDatabase, harvestTypeScript } from "./actions";
+import { buildDatabase, queryDatabase } from "./actions";
 
 async function main() {
+  // TODO: command line arguments
   // await buildDatabase();
   // await queryDatabase();
-  await harvestTypeScript();
 }
 
 main().catch((err) => {
