@@ -88,7 +88,7 @@ export const buildDatabase = async () => {
   }
 
   logger.info(
-    `Done. Processed ${jsFilePaths.length - skippedFilesCount} files, skipped ${skippedFilesCount}`,
+    `Done. Processed ${processedFilesCount} files, skipped ${skippedFilesCount}`,
   );
 
   process.exit(0);
