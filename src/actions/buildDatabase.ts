@@ -3,7 +3,11 @@ import fs from "node:fs/promises";
 
 import ollama from "ollama";
 import ignoreWalk from "ignore-walk";
-import { ChromaClient, type AddRecordsParams } from "chromadb-client";
+import {
+  ChromaClient,
+  type AddRecordsParams,
+  type Metadata,
+} from "chromadb-client";
 import { v4 as uuidv4 } from "uuid";
 import CRC32 from "crc-32";
 import ts from "typescript";
@@ -11,7 +15,7 @@ import ts from "typescript";
 import { logger, config } from "../utils";
 
 const PROGRESS_GROUP_COUNT = 100;
-const MAX_NODE_SIZE = 20; // TODO: Test larger value?
+const MAX_NODE_SIZE = 30; // TODO: Test larger value?
 
 export const buildDatabase = async () => {
   const chroma = new ChromaClient({ path: config.chromadbPath });
@@ -90,34 +94,42 @@ export const buildDatabase = async () => {
 
     traverse(sourceFile);
 
-    // TODO: Generate embeddings for all fragments at once
-    // TODO: Insert all records for fragments at once
-    for (const fragment of fragments) {
-      const { embeddings } = await ollama.embed({
-        model: config.embeddingsModel,
-        input: fragment.content,
+    const documents: Array<string> = [];
+    const ids: Array<string> = [];
+    const metadatas: Array<Metadata> = [];
+
+    for (let i = 0; i < fragments.length; i++) {
+      const fragment = fragments[i];
+
+      ids.push(uuidv4());
+
+      documents.push(fragment.content);
+
+      metadatas.push({
+        filePath,
+        fileExt,
+        fileSize,
+        fileCreatedAt,
+        fileUpdatedAt,
+        fileChecksum,
+        fragmentKind: fragment.kind,
+        fragmentLines: fragment.lines,
       });
-
-      const newRecord: AddRecordsParams = {
-        ids: [uuidv4()],
-        documents: [fileContent],
-        embeddings: embeddings,
-        metadatas: [
-          {
-            filePath,
-            fileExt,
-            fileSize,
-            fileCreatedAt,
-            fileUpdatedAt,
-            fileChecksum,
-            fragmentKind: fragment.kind,
-            fragmentLines: fragment.lines,
-          },
-        ],
-      };
-
-      await collection.add(newRecord);
     }
+
+    const { embeddings } = await ollama.embed({
+      model: config.embeddingsModel,
+      input: documents,
+    });
+
+    const newRecords: AddRecordsParams = {
+      ids,
+      documents,
+      embeddings,
+      metadatas,
+    };
+
+    await collection.add(newRecords);
 
     processedFilesCount++;
 
